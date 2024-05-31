@@ -47,7 +47,7 @@
 
 6. **Run database migrations**:
     ```sh
-    python manage.py migrate
+    python manage.py makemigrations
     ```
 
 7. **Create a superuser** (optional but recommended for admin access):
@@ -74,6 +74,20 @@ pytest
 To run tests using Django's built-in test framework, use the following command:
 ```
 docker-compose run --rm app sh -c "python manage.py test"
+```
+
+## Code Formatting and Linting
+
+### Using flake 8
+flake8 is used for linting the code. To run flake8, use:
+```
+flake8 .
+```
+
+### Using black
+black is used for code formatting. To format your code using black, use:
+```
+black .
 ```
 
 ## API Documentation

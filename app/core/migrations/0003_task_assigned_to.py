@@ -7,13 +7,15 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('core', '0002_task'),
+        ("core", "0002_task"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='task',
-            name='assigned_to',
-            field=models.ManyToManyField(blank=True, related_name='tasks_assigned', to=settings.AUTH_USER_MODEL),
+            model_name="task",
+            name="assigned_to",
+            field=models.ManyToManyField(
+                blank=True, related_name="tasks_assigned", to=settings.AUTH_USER_MODEL
+            ),
         ),
     ]

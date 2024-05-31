@@ -1,6 +1,7 @@
 """
 Urls mappings for the task app.
 """
+
 from django.urls import (
     path,
     include,
@@ -12,10 +13,8 @@ from task import views
 
 
 router = DefaultRouter()
-router.register('tasks', views.TaskViewSet)
+router.register("tasks", views.TaskViewSet)
 
-app_name = 'task'
+app_name = "task"
 
-urlpatterns = [
-    path('', include(router.urls))
-]
+urlpatterns = [path("", include(router.urls))]

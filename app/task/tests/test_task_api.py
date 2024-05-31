@@ -1,6 +1,7 @@
 """
 Tests for task API.
 """
+
 from django.contrib.auth import get_user_model
 from django.db.models import Min
 from django.forms import model_to_dict
@@ -18,24 +19,24 @@ from core.models import (
 from task.serializers import (
     TaskSerializer,
     TaskDetailSerializer,
-    TaskChangesHistorySerializer
+    TaskChangesHistorySerializer,
 )
 
 
-TASK_URL = reverse('task:task-list')
+TASK_URL = reverse("task:task-list")
 
 
 def detail_url(task_id):
     """Create and return a task detail URL."""
-    return reverse('task:task-detail', args=[task_id])
+    return reverse("task:task-detail", args=[task_id])
 
 
 def create_task(user, assigned_to=None, **kwargs):
     """Create and return a sample task."""
     defaults = {
-        'name': 'Test task',
-        'description': 'Test description',
-        'status': 'new',
+        "name": "Test task",
+        "description": "Test description",
+        "status": "new",
     }
     defaults.update(kwargs)
 
@@ -69,19 +70,19 @@ class PrivateTaskApiTests(TestCase):
     def setUp(self):
         self.client = APIClient()
         self.user = create_user(
-            email='Test@example.com',
-            password='Test123',
+            email="Test@example.com",
+            password="Test123",
         )
         self.client.force_authenticate(self.user)
 
     def test_retrieve_tasks(self):
         """Test retrieving a list of tasks."""
-        create_task(name='task1', user=self.user)
-        create_task(name='task2', user=self.user)
+        create_task(name="task1", user=self.user)
+        create_task(name="task2", user=self.user)
 
         res = self.client.get(TASK_URL)
 
-        tasks = Task.objects.all().order_by('-id')
+        tasks = Task.objects.all().order_by("-id")
         serializer = TaskSerializer(tasks, many=True)
         self.assertEqual(res.status_code, status.HTTP_200_OK)
         self.assertEqual(res.data, serializer.data)
@@ -100,86 +101,86 @@ class PrivateTaskApiTests(TestCase):
     def test_create_task_successful(self):
         """Test creating a task successful."""
         payload = {
-            'name': 'Test nam',
-            'description': 'Test description',
-            'status': 'new',
+            "name": "Test nam",
+            "description": "Test description",
+            "status": "new",
         }
         res = self.client.post(TASK_URL, payload)
 
         self.assertEqual(res.status_code, status.HTTP_201_CREATED)
-        task = Task.objects.get(id=res.data['id'])
+        task = Task.objects.get(id=res.data["id"])
         for k, v in payload.items():
             self.assertEqual(getattr(task, k), v)
         self.assertEqual(task.user, self.user)
 
     def test_create_task_with_assigned_users(self):
         """Test creating a task with assigned users successful."""
-        user1 = create_user(email='test2@example.com', password='Test123')
-        user2 = create_user(email='test3@example.com', password='Test123')
+        user1 = create_user(email="test2@example.com", password="Test123")
+        user2 = create_user(email="test3@example.com", password="Test123")
         payload = {
-            'name': 'test name',
-            'description': 'test description',
-            'status': 'in_progress',
-            'assigned_to': [user1.id, user2.id]
+            "name": "test name",
+            "description": "test description",
+            "status": "in_progress",
+            "assigned_to": [user1.id, user2.id],
         }
         res = self.client.post(TASK_URL, payload)
 
         self.assertEqual(res.status_code, status.HTTP_201_CREATED)
-        task = Task.objects.get(id=res.data['id'])
+        task = Task.objects.get(id=res.data["id"])
         assigned_users = task.assigned_to.all()
-        for user_id in payload['assigned_to']:
+        for user_id in payload["assigned_to"]:
             self.assertIn(user_id, [user.id for user in assigned_users])
-        self.assertEqual(assigned_users.count(), len(payload['assigned_to']))
+        self.assertEqual(assigned_users.count(), len(payload["assigned_to"]))
 
     def test_add_assigned_user_to_exist_task(self):
         """Test that a user can be assigned to an existing task."""
-        user1 = create_user(email='test2@example.com', password='Test123')
-        user2 = create_user(email='test3@example.com', password='Test123')
+        user1 = create_user(email="test2@example.com", password="Test123")
+        user2 = create_user(email="test3@example.com", password="Test123")
         task = create_task(user=self.user)
 
-        payload = {'assigned_to': [user1.id, user2.id]}
+        payload = {"assigned_to": [user1.id, user2.id]}
         url = detail_url(task.id)
         res = self.client.patch(url, payload)
         assigned_users = task.assigned_to.all()
 
         self.assertEqual(res.status_code, status.HTTP_200_OK)
-        for user_id in payload['assigned_to']:
+        for user_id in payload["assigned_to"]:
             self.assertIn(user_id, [user.id for user in assigned_users])
-        self.assertEqual(assigned_users.count(), len(payload['assigned_to']))
+        self.assertEqual(assigned_users.count(), len(payload["assigned_to"]))
 
     def test_create_task_wrong_status(self):
         """Test that an error is returned if an invalid status is provided."""
         payload = {
-            'name': 'Test nam',
-            'description': 'Test description',
-            'status': 'wrong',
+            "name": "Test nam",
+            "description": "Test description",
+            "status": "wrong",
         }
         res = self.client.post(TASK_URL, payload)
 
         self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
-        task = Task.objects.filter(name=payload['name']).exists()
+        task = Task.objects.filter(name=payload["name"]).exists()
         self.assertFalse(task)
 
     def test_partial_update(self):
         """Test partial update of a task."""
         task = create_task(user=self.user)
 
-        payload = {'name': 'updated task name'}
+        payload = {"name": "updated task name"}
         url = detail_url(task.id)
         res = self.client.patch(url, payload)
 
         self.assertEqual(res.status_code, status.HTTP_200_OK)
         task.refresh_from_db()
-        self.assertEqual(task.name, payload['name'])
+        self.assertEqual(task.name, payload["name"])
         self.assertEqual(task.user, self.user)
 
     def test_full_update(self):
         """Test full update of a task."""
         task = create_task(user=self.user)
         payload = {
-            'name': 'updated task name',
-            'description': 'updated description name',
-            'status': 'in_progress',
+            "name": "updated task name",
+            "description": "updated description name",
+            "status": "in_progress",
         }
         url = detail_url(task.id)
         res = self.client.put(url, payload)
@@ -191,10 +192,10 @@ class PrivateTaskApiTests(TestCase):
         self.assertEqual(task.user, self.user)
 
     def test_update_user_returns_error(self):
-        new_user = create_user(email='example2@test.com', password="Test123")
+        new_user = create_user(email="example2@test.com", password="Test123")
         task = create_task(user=self.user)
 
-        payload = {'user': new_user.id}
+        payload = {"user": new_user.id}
         url = detail_url(task.id)
         res = self.client.patch(url, payload)
 
@@ -215,7 +216,7 @@ class PrivateTaskApiTests(TestCase):
     def test_task_changes_history_created_on_update(self):
         """Test that a task changes history record is created on task update."""
         task = create_task(user=self.user)
-        payload = {'name': 'updated test name'}
+        payload = {"name": "updated test name"}
         url = detail_url(task.id)
         res = self.client.patch(url, payload)
 
@@ -227,13 +228,12 @@ class PrivateTaskApiTests(TestCase):
         """Test that the task changes history record contains the correct snapshot data."""
         task = create_task(user=self.user)
         task_snapshot = model_to_dict(
-            task,
-            fields=['name', 'description', 'status', 'assigned_to']
+            task, fields=["name", "description", "status", "assigned_to"]
         )
-        if task_snapshot['assigned_to']:
-            task_snapshot['assigned_to'] = task.assigned_to.id
+        if task_snapshot["assigned_to"]:
+            task_snapshot["assigned_to"] = task.assigned_to.id
 
-        payload = {'name': 'Changed name'}
+        payload = {"name": "Changed name"}
         url = detail_url(task.id)
         res = self.client.patch(url, payload)
 
@@ -252,25 +252,25 @@ class PrivateTaskApiTests(TestCase):
                 changed_by=self.user,
                 change_date=timezone.now() - timezone.timedelta(days=i),
                 task_snapshot={
-                    'name': f'Old Task Name {i}',
-                    'description': f'Old Task Description {i}',
-                    'status': 'new',
-                    'assigned_to': None,
-                }
+                    "name": f"Old Task Name {i}",
+                    "description": f"Old Task Description {i}",
+                    "status": "new",
+                    "assigned_to": None,
+                },
             )
 
         url = detail_url(task.id)
         res = self.client.get(url)
 
         self.assertEqual(res.status_code, status.HTTP_200_OK)
-        self.assertEqual(len(res.data['changes']), 15)
-        changes = TaskChangesHistory.objects.filter(task=task).order_by('-change_date')
+        self.assertEqual(len(res.data["changes"]), 15)
+        changes = TaskChangesHistory.objects.filter(task=task).order_by("-change_date")
         serializer = TaskChangesHistorySerializer(changes, many=True)
-        self.assertEqual(res.data['changes'], serializer.data)
+        self.assertEqual(res.data["changes"], serializer.data)
 
     def test_filter_task_by_assigned_user(self):
         """Test filtering tasks by assigned user."""
-        user2 = create_user(email='example2@test.com', password='Test123')
+        user2 = create_user(email="example2@test.com", password="Test123")
         task1 = create_task(user=self.user)
         task2 = create_task(user=self.user)
         task3 = create_task(user=self.user)
@@ -279,7 +279,7 @@ class PrivateTaskApiTests(TestCase):
         task2.assigned_to.add(user2)
         task3.assigned_to.add(self.user)
 
-        res = self.client.get(TASK_URL, {'assigned_to': user2.id})
+        res = self.client.get(TASK_URL, {"assigned_to": user2.id})
 
         serializer1 = TaskSerializer(task1)
         serializer2 = TaskSerializer(task2)
@@ -292,11 +292,11 @@ class PrivateTaskApiTests(TestCase):
 
     def test_filter_task_by_name(self):
         """Test filtering tasks by name."""
-        task1 = create_task(user=self.user, name='Cooking Soup')
-        task2 = create_task(user=self.user, name='Cleaning Task')
-        task3 = create_task(user=self.user, name='Cooking Dinner')
+        task1 = create_task(user=self.user, name="Cooking Soup")
+        task2 = create_task(user=self.user, name="Cleaning Task")
+        task3 = create_task(user=self.user, name="Cooking Dinner")
 
-        res = self.client.get(TASK_URL, {'name': 'cooking'})
+        res = self.client.get(TASK_URL, {"name": "cooking"})
 
         serializer1 = TaskSerializer(task1)
         serializer2 = TaskSerializer(task2)
@@ -309,11 +309,11 @@ class PrivateTaskApiTests(TestCase):
 
     def test_filter_task_by_status(self):
         """Test filtering tasks by status."""
-        task1 = create_task(user=self.user, status='done')
-        task2 = create_task(user=self.user, status='done')
-        task3 = create_task(user=self.user, status='new')
+        task1 = create_task(user=self.user, status="done")
+        task2 = create_task(user=self.user, status="done")
+        task3 = create_task(user=self.user, status="new")
 
-        res = self.client.get(TASK_URL, {'status': 'done'})
+        res = self.client.get(TASK_URL, {"status": "done"})
 
         serializer1 = TaskSerializer(task1)
         serializer2 = TaskSerializer(task2)
@@ -326,13 +326,13 @@ class PrivateTaskApiTests(TestCase):
 
     def test_sort_task_by_name(self):
         """Test sorting tasks by name."""
-        create_task(user=self.user, name='First Task')
-        create_task(user=self.user, name='Anaconda Task')
-        create_task(user=self.user, name='Abort Task')
+        create_task(user=self.user, name="First Task")
+        create_task(user=self.user, name="Anaconda Task")
+        create_task(user=self.user, name="Abort Task")
 
-        res = self.client.get(TASK_URL, {'ordering': 'name'})
+        res = self.client.get(TASK_URL, {"ordering": "name"})
 
-        tasks = Task.objects.all().order_by('name')
+        tasks = Task.objects.all().order_by("name")
         serializer = TaskSerializer(tasks, many=True)
         self.assertEqual(res.status_code, status.HTTP_200_OK)
         self.assertEqual(res.data, serializer.data)
@@ -340,13 +340,13 @@ class PrivateTaskApiTests(TestCase):
 
     def test_sort_tasks_by_status(self):
         """Test sorting tasks by status."""
-        create_task(user=self.user, status='in_progress')
-        create_task(user=self.user, status='done')
-        create_task(user=self.user, status='new')
+        create_task(user=self.user, status="in_progress")
+        create_task(user=self.user, status="done")
+        create_task(user=self.user, status="new")
 
-        res = self.client.get(TASK_URL, {'ordering': 'status'})
+        res = self.client.get(TASK_URL, {"ordering": "status"})
 
-        tasks = Task.objects.all().order_by('status')
+        tasks = Task.objects.all().order_by("status")
         serializer = TaskSerializer(tasks, many=True)
         self.assertEqual(res.status_code, status.HTTP_200_OK)
         self.assertEqual(res.data, serializer.data)
@@ -354,16 +354,16 @@ class PrivateTaskApiTests(TestCase):
 
     def test_sort_tasks_by_assigned_user(self):
         """Test sorting tasks by user."""
-        user2 = create_user(email='user2@example.com', password='testpass')
+        user2 = create_user(email="user2@example.com", password="testpass")
         create_task(user=self.user, assigned_to=[self.user])
         create_task(user=self.user, assigned_to=[self.user])
         create_task(user=self.user, assigned_to=[user2])
 
-        res = self.client.get(TASK_URL, {'ordering': 'assigned_to__email'})
+        res = self.client.get(TASK_URL, {"ordering": "assigned_to__email"})
 
         tasks = Task.objects.annotate(
-            assigned_user_email=Min('assigned_to__email')
-        ).order_by('-assigned_user_email')
+            assigned_user_email=Min("assigned_to__email")
+        ).order_by("-assigned_user_email")
         serializer = TaskSerializer(tasks, many=True)
         self.assertEqual(res.status_code, status.HTTP_200_OK)
         self.assertEqual(res.data, serializer.data)

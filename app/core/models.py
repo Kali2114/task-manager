@@ -1,6 +1,7 @@
 """
 Databases models.
 """
+
 from django.conf import settings
 from django.db import models
 from django.utils import timezone
@@ -17,7 +18,7 @@ class UserManager(BaseUserManager):
     def create_user(self, email, password=None, **kwargs):
         """Create and return a new user."""
         if not email:
-            raise ValueError('Email is required.')
+            raise ValueError("Email is required.")
         user = self.model(email=self.normalize_email(email), **kwargs)
         user.set_password(password)
         user.save(using=self._db)
@@ -36,6 +37,7 @@ class UserManager(BaseUserManager):
 
 class User(AbstractBaseUser, PermissionsMixin):
     """User in the system."""
+
     email = models.EmailField(max_length=255, unique=True)
     name = models.CharField(max_length=255)
     is_active = models.BooleanField(default=True)
@@ -43,16 +45,13 @@ class User(AbstractBaseUser, PermissionsMixin):
 
     objects = UserManager()
 
-    USERNAME_FIELD = 'email'
+    USERNAME_FIELD = "email"
 
 
 class Task(models.Model):
     """Model for task object."""
-    STATUS_CHOICES = [
-        ('new', 'NEW'),
-        ('in_progress', 'In progress'),
-        ('done', 'Done')
-    ]
+
+    STATUS_CHOICES = [("new", "NEW"), ("in_progress", "In progress"), ("done", "Done")]
 
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL,
@@ -62,14 +61,14 @@ class Task(models.Model):
     )
     assigned_to = models.ManyToManyField(
         settings.AUTH_USER_MODEL,
-        related_name='tasks_assigned',
+        related_name="tasks_assigned",
         blank=True,
     )
     name = models.CharField(max_length=255)
     description = models.TextField(blank=True, null=True)
     status = models.CharField(
         max_length=20,
-        default='new',
+        default="new",
         choices=STATUS_CHOICES,
     )
 
@@ -79,11 +78,13 @@ class Task(models.Model):
 
 class TaskChangesHistory(models.Model):
     """Model to track changes in tasks."""
-    task = models.ForeignKey('Task',
-                             on_delete=models.CASCADE,
-                             related_name='changes',)
-    changed_by = models.ForeignKey(settings.AUTH_USER_MODEL,
-                                   on_delete=models.CASCADE)
+
+    task = models.ForeignKey(
+        "Task",
+        on_delete=models.CASCADE,
+        related_name="changes",
+    )
+    changed_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
     change_date = models.DateTimeField(default=timezone.now)
     task_snapshot = models.JSONField()
 
