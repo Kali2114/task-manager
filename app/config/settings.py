@@ -41,6 +41,7 @@ INSTALLED_APPS = [
     'django',
     'rest_framework',
     'rest_framework.authtoken',
+    'django_filters',
     'drf_spectacular',
     'user',
     'task',
@@ -138,4 +139,7 @@ AUTH_USER_MODEL = 'core.User'
 
 REST_FRAMEWORK = {
     'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
+    'DEFAULT_FILTER_BACKENDS': [
+        'django_filters.rest_framework.DjangoFilterBackend',
+    ],
 }

@@ -14,7 +14,7 @@ class TaskSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Task
-        fields = ['id', 'name', 'status']
+        fields = ['id', 'name', 'assigned_to', 'status']
         read_only_fields = ['id']
 
     def validate_status(self, value):
@@ -29,12 +29,12 @@ class TaskDetailSerializer(TaskSerializer):
     changes = serializers.SerializerMethodField()
 
     class Meta(TaskSerializer.Meta):
-        fields = TaskSerializer.Meta.fields + ['description', 'user', 'assigned_to', 'changes']
-        read_only_fields = ['user']
+        fields = TaskSerializer.Meta.fields + ['description', 'user', 'changes']
+        read_only_fields = ['user', 'changes']
 
     def get_changes(self, obj):
         """Retrieve the last 10 changes for the given task."""
-        changes = obj.changes.order_by('-change_date')[:10]
+        changes = obj.changes.order_by('-change_date')
         return TaskChangesHistorySerializer(changes, many=True).data
 
 

@@ -2,6 +2,7 @@
 Tests for task API.
 """
 from django.contrib.auth import get_user_model
+from django.db.models import Min
 from django.forms import model_to_dict
 from django.test import TestCase
 from django.urls import reverse
@@ -29,7 +30,7 @@ def detail_url(task_id):
     return reverse('task:task-detail', args=[task_id])
 
 
-def create_task(user, **kwargs):
+def create_task(user, assigned_to=None, **kwargs):
     """Create and return a sample task."""
     defaults = {
         'name': 'Test task',
@@ -39,6 +40,8 @@ def create_task(user, **kwargs):
     defaults.update(kwargs)
 
     task = Task.objects.create(user=user, **defaults)
+    if assigned_to:
+        task.assigned_to.set(assigned_to)
     return task
 
 
@@ -260,7 +263,108 @@ class PrivateTaskApiTests(TestCase):
         res = self.client.get(url)
 
         self.assertEqual(res.status_code, status.HTTP_200_OK)
-        self.assertEqual(len(res.data['changes']), 10)
-        changes = TaskChangesHistory.objects.filter(task=task).order_by('-change_date')[:10]
+        self.assertEqual(len(res.data['changes']), 15)
+        changes = TaskChangesHistory.objects.filter(task=task).order_by('-change_date')
         serializer = TaskChangesHistorySerializer(changes, many=True)
         self.assertEqual(res.data['changes'], serializer.data)
+
+    def test_filter_task_by_assigned_user(self):
+        """Test filtering tasks by assigned user."""
+        user2 = create_user(email='example2@test.com', password='Test123')
+        task1 = create_task(user=self.user)
+        task2 = create_task(user=self.user)
+        task3 = create_task(user=self.user)
+
+        task1.assigned_to.add(user2)
+        task2.assigned_to.add(user2)
+        task3.assigned_to.add(self.user)
+
+        res = self.client.get(TASK_URL, {'assigned_to': user2.id})
+
+        serializer1 = TaskSerializer(task1)
+        serializer2 = TaskSerializer(task2)
+        serializer3 = TaskSerializer(task3)
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        self.assertIn(serializer1.data, res.data)
+        self.assertIn(serializer2.data, res.data)
+        self.assertNotIn(serializer3.data, res.data)
+        self.assertEqual(len(res.data), 2)
+
+    def test_filter_task_by_name(self):
+        """Test filtering tasks by name."""
+        task1 = create_task(user=self.user, name='Cooking Soup')
+        task2 = create_task(user=self.user, name='Cleaning Task')
+        task3 = create_task(user=self.user, name='Cooking Dinner')
+
+        res = self.client.get(TASK_URL, {'name': 'cooking'})
+
+        serializer1 = TaskSerializer(task1)
+        serializer2 = TaskSerializer(task2)
+        serializer3 = TaskSerializer(task3)
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        self.assertIn(serializer1.data, res.data)
+        self.assertNotIn(serializer2.data, res.data)
+        self.assertIn(serializer3.data, res.data)
+        self.assertEqual(len(res.data), 2)
+
+    def test_filter_task_by_status(self):
+        """Test filtering tasks by status."""
+        task1 = create_task(user=self.user, status='done')
+        task2 = create_task(user=self.user, status='done')
+        task3 = create_task(user=self.user, status='new')
+
+        res = self.client.get(TASK_URL, {'status': 'done'})
+
+        serializer1 = TaskSerializer(task1)
+        serializer2 = TaskSerializer(task2)
+        serializer3 = TaskSerializer(task3)
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        self.assertIn(serializer1.data, res.data)
+        self.assertIn(serializer2.data, res.data)
+        self.assertNotIn(serializer3.data, res.data)
+        self.assertEqual(len(res.data), 2)
+
+    def test_sort_task_by_name(self):
+        """Test sorting tasks by name."""
+        create_task(user=self.user, name='First Task')
+        create_task(user=self.user, name='Anaconda Task')
+        create_task(user=self.user, name='Abort Task')
+
+        res = self.client.get(TASK_URL, {'ordering': 'name'})
+
+        tasks = Task.objects.all().order_by('name')
+        serializer = TaskSerializer(tasks, many=True)
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        self.assertEqual(res.data, serializer.data)
+        self.assertEqual(len(res.data), 3)
+
+    def test_sort_tasks_by_status(self):
+        """Test sorting tasks by status."""
+        create_task(user=self.user, status='in_progress')
+        create_task(user=self.user, status='done')
+        create_task(user=self.user, status='new')
+
+        res = self.client.get(TASK_URL, {'ordering': 'status'})
+
+        tasks = Task.objects.all().order_by('status')
+        serializer = TaskSerializer(tasks, many=True)
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        self.assertEqual(res.data, serializer.data)
+        self.assertEqual(len(res.data), 3)
+
+    def test_sort_tasks_by_assigned_user(self):
+        """Test sorting tasks by user."""
+        user2 = create_user(email='user2@example.com', password='testpass')
+        create_task(user=self.user, assigned_to=[self.user])
+        create_task(user=self.user, assigned_to=[self.user])
+        create_task(user=self.user, assigned_to=[user2])
+
+        res = self.client.get(TASK_URL, {'ordering': 'assigned_to__email'})
+
+        tasks = Task.objects.annotate(
+            assigned_user_email=Min('assigned_to__email')
+        ).order_by('-assigned_user_email')
+        serializer = TaskSerializer(tasks, many=True)
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        self.assertEqual(res.data, serializer.data)
+        self.assertEqual(len(res.data), 3)
